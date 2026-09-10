@@ -9,7 +9,7 @@ labels:
 - supabase-postgres
 options:
 - version: '17'
-  tag: 17-supabase-1.48.0
+  tag: 17-0.1.0
   default: true
 endpoints:
 - name: postgres
@@ -137,7 +137,7 @@ workloads:
     volumes: extraVolumes
   containers:
   - name: postgres
-    image: wodby/postgres
+    image: wodby/supabase-postgres
     helm:
       env: envVars
       resources: resources
