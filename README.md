@@ -2,6 +2,10 @@
 
 PostgreSQL 17 for the Supabase self-hosted/v0.8.1 bundle, using `supabase/postgres:17.6.1.136` and the Wodby `stateful` chart. The upstream image entrypoint performs initialization; replacing it with the PostgreSQL executable would bypass setup and privilege dropping.
 
+## Use this service
+
+Use this service through the [Supabase stack](https://github.com/wodby/stack-supabase).
+
 ## Database contract
 
 Supabase owns the `postgres` database, reserved roles, internal schemas and extensions. The service exports its `postgres_password` and `jwt_secret` tokens to linked Supabase services. Database and user creation actions are intentionally absent: the upstream image provisions these resources. Manage additional application schemas through Supabase migrations; remove the owning service when the entire database is no longer needed.
@@ -27,3 +31,7 @@ Do not change the PostgreSQL major image tag against an existing data directory.
 ## Upstream source
 
 Initialization SQL comes from [Supabase self-hosted/v0.8.1](https://github.com/supabase/supabase/tree/self-hosted/v0.8.1/docker/volumes/db), commit `8c7a4d9dbbaf8b552893822e89d7bf06f33f9220`. The upstream license is retained in this repository.
+
+## Maintain a custom version
+
+Fork this repository, update the manifest and referenced configuration, and validate the complete Supabase bundle before importing your service.
