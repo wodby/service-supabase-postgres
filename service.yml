@@ -1,0 +1,190 @@
+name: supabase-postgres
+title: Supabase PostgreSQL
+icon: postgres
+type: db
+scalable: false
+labels:
+- postgres
+- postgresql
+- supabase-postgres
+options:
+- version: '17'
+  tag: 17.6.1.136
+  default: true
+endpoints:
+- name: postgres
+  ports:
+  - name: postgres
+    number: 5432
+    protocol: tcp
+    private: true
+tokens:
+- name: postgres_password
+  generate:
+    regex: '[a-z0-9]{32}'
+- name: jwt_secret
+  generate:
+    regex: '[a-z0-9]{64}'
+database:
+  type: postgres
+  kind: postgres
+  port: 5432
+  ssl: false
+  root:
+    username: supabase_admin
+    password: '{{postgres_password}}'
+  db:
+    name: postgres
+    charset: UTF8
+    collation: en_US.utf8
+  user:
+    name: postgres
+    password: '{{postgres_password}}'
+  charsets:
+  - name: UTF8
+    title: UTF8
+    collation: en_US.utf8
+    default: true
+volumes:
+- name: data
+  title: Database data
+  size: 20
+  helm:
+    values:
+    - name: persistence.enabled
+      value: true
+    - name: persistence.existingClaim
+      value: '{{volumes.data.claim}}'
+    - name: persistence.mountPath
+      value: /var/lib/postgresql/data
+- name: keys
+  title: Database encryption keys
+  size: 1
+  path: /etc/postgresql-custom
+configs:
+- name: realtime
+  title: realtime.sql
+  config: config/realtime.sql
+  filepath: /docker-entrypoint-initdb.d/migrations/99-realtime.sql
+- name: webhooks
+  title: webhooks.sql
+  config: config/webhooks.sql
+  filepath: /docker-entrypoint-initdb.d/init-scripts/98-webhooks.sql
+- name: roles
+  title: roles.sql
+  config: config/roles.sql
+  filepath: /docker-entrypoint-initdb.d/init-scripts/99-roles.sql
+- name: jwt
+  title: jwt.sql
+  config: config/jwt.sql
+  filepath: /docker-entrypoint-initdb.d/init-scripts/99-jwt.sql
+- name: supabase
+  title: _supabase.sql
+  config: config/_supabase.sql
+  filepath: /docker-entrypoint-initdb.d/migrations/97-_supabase.sql
+- name: ready
+  title: Ready
+  config: scripts/ready.sh
+  filepath: /opt/wodby/ready.sh
+- name: backup
+  title: Backup
+  config: scripts/backup.sh
+  filepath: /opt/wodby/backup.sh
+- name: restore
+  title: Restore
+  config: scripts/restore.sh
+  filepath: /opt/wodby/restore.sh
+env:
+- name: POSTGRES_PASSWORD
+  value: '{{postgres_password}}'
+- name: PGPASSWORD
+  value: '{{postgres_password}}'
+- name: JWT_SECRET
+  value: '{{jwt_secret}}'
+- name: JWT_EXP
+  value: '3600'
+- name: POSTGRES_DB
+  value: postgres
+- name: PGDATABASE
+  value: postgres
+- name: PGUSER
+  value: supabase_admin
+- name: PGHOST
+  value: 127.0.0.1
+- name: POSTGRES_PORT
+  value: '5432'
+helm:
+  name: wodby
+  source: oci://registry-1.docker.io/wodby/stateful
+  chart: oci://registry-1.docker.io/wodby/stateful
+  version: 0.2.0
+  valueMappings:
+    serviceAccountName: serviceAccount.name
+    serviceAccountCreate: serviceAccount.create
+  values:
+  - name: containerName
+    value: postgres
+  - name: containerPorts
+    value:
+    - name: postgres
+      containerPort: 5432
+  - name: service.ports
+    value:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+  - name: args
+    value:
+    - postgres
+    - -c
+    - config_file=/etc/postgresql/postgresql.conf
+    - -c
+    - log_min_messages=warning
+  - name: startupProbe
+    value:
+      exec:
+        command:
+        - pg_isready
+        - -h
+        - 127.0.0.1
+        - -U
+        - supabase_admin
+      periodSeconds: 5
+      failureThreshold: 90
+  - name: readinessProbe
+    value:
+      exec:
+        command:
+        - sh
+        - /opt/wodby/ready.sh
+      periodSeconds: 5
+      timeoutSeconds: 5
+workloads:
+- name: main
+  kind: statefulset
+  primary: true
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: '{{helm.release}}'
+  helm:
+    labels: podLabels
+    annotations: podAnnotations
+    volumes: extraVolumes
+  containers:
+  - name: postgres
+    image: supabase/postgres
+    helm:
+      env: envVars
+      resources: resources
+      mounts: extraVolumeMounts
+backups:
+- name: database
+  title: Supabase databases and roles
+  create:
+    args:
+    - sh
+    - /opt/wodby/backup.sh
+    - '{{database.host}}'
+  upload:
+    filepath: /var/lib/postgresql/data/supabase-backup.tar.gz
+    extension: tar.gz
