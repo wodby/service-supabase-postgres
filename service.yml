@@ -9,7 +9,7 @@ labels:
 - supabase-postgres
 options:
 - version: '17'
-  tag: 17.6.1.136
+  tag: 17-supabase-1.48.0
   default: true
 endpoints:
 - name: postgres
@@ -25,6 +25,8 @@ tokens:
 - name: jwt_secret
   generate:
     regex: '[a-z0-9]{64}'
+- name: exclude_tables
+  value: ''
 database:
   type: postgres
   kind: postgres
@@ -47,7 +49,7 @@ database:
     default: true
 volumes:
 - name: data
-  title: Database data
+  title: Database data and encryption keys
   size: 20
   helm:
     values:
@@ -56,44 +58,7 @@ volumes:
     - name: persistence.existingClaim
       value: '{{volumes.data.claim}}'
     - name: persistence.mountPath
-      value: /var/lib/postgresql/data
-- name: keys
-  title: Database encryption keys
-  size: 1
-  path: /etc/postgresql-custom
-configs:
-- name: realtime
-  title: realtime.sql
-  config: config/realtime.sql
-  filepath: /docker-entrypoint-initdb.d/migrations/99-realtime.sql
-- name: webhooks
-  title: webhooks.sql
-  config: config/webhooks.sql
-  filepath: /docker-entrypoint-initdb.d/init-scripts/98-webhooks.sql
-- name: roles
-  title: roles.sql
-  config: config/roles.sql
-  filepath: /docker-entrypoint-initdb.d/init-scripts/99-roles.sql
-- name: jwt
-  title: jwt.sql
-  config: config/jwt.sql
-  filepath: /docker-entrypoint-initdb.d/init-scripts/99-jwt.sql
-- name: supabase
-  title: _supabase.sql
-  config: config/_supabase.sql
-  filepath: /docker-entrypoint-initdb.d/migrations/97-_supabase.sql
-- name: ready
-  title: Ready
-  config: scripts/ready.sh
-  filepath: /opt/wodby/ready.sh
-- name: backup
-  title: Backup
-  config: scripts/backup.sh
-  filepath: /opt/wodby/backup.sh
-- name: restore
-  title: Restore
-  config: scripts/restore.sh
-  filepath: /opt/wodby/restore.sh
+      value: /var/lib/postgresql
 env:
 - name: POSTGRES_PASSWORD
   value: '{{postgres_password}}'
@@ -155,8 +120,8 @@ helm:
     value:
       exec:
         command:
-        - sh
-        - /opt/wodby/ready.sh
+        - supabase-ops
+        - check-ready
       periodSeconds: 5
       timeoutSeconds: 5
 workloads:
@@ -172,7 +137,7 @@ workloads:
     volumes: extraVolumes
   containers:
   - name: postgres
-    image: supabase/postgres
+    image: wodby/postgres
     helm:
       env: envVars
       resources: resources
@@ -182,9 +147,23 @@ backups:
   title: Supabase databases and roles
   create:
     args:
-    - sh
-    - /opt/wodby/backup.sh
-    - '{{database.host}}'
+    - make
+    - backup
+    - host={{database.host}}
+    - filepath=/var/lib/postgresql/backup.tar.gz
+    - ignore={{exclude_tables}}
   upload:
-    filepath: /var/lib/postgresql/data/supabase-backup.tar.gz
+    filepath: /var/lib/postgresql/backup.tar.gz
     extension: tar.gz
+imports:
+- name: database
+  title: Supabase database import
+  volume: data
+  init:
+    mount: /wodby/import
+    env:
+    - name: SUPABASE_IMPORT_ON_INIT
+      value: '1'
+  extensions:
+  - tar.gz
+  - tgz
