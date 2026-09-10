@@ -1,6 +1,6 @@
 # Supabase PostgreSQL service for Wodby
 
-PostgreSQL 17 for the Supabase self-hosted/v0.8.1 bundle, using `supabase/postgres:17.6.1.136` and the Wodby `stateful` chart. The upstream image entrypoint performs initialization; replacing it with the PostgreSQL executable would bypass setup and privilege dropping.
+PostgreSQL 17 for the Supabase self-hosted/v0.8.1 bundle, using `wodby/supabase-postgres:17-0.1.0` and the Wodby `stateful` chart. The image retains the official Supabase runtime and entrypoint, and provides Wodby backup and import operations.
 
 ## Use this service
 
@@ -8,30 +8,26 @@ Use this service through the [Supabase stack](https://github.com/wodby/stack-sup
 
 ## Database contract
 
-Supabase owns the `postgres` database, reserved roles, internal schemas and extensions. The service exports its `postgres_password` and `jwt_secret` tokens to linked Supabase services. Database and user creation actions are intentionally absent: the upstream image provisions these resources. Manage additional application schemas through Supabase migrations; remove the owning service when the entire database is no longer needed.
+Supabase owns the `postgres` database, reserved roles, internal schemas and extensions. The service exports its `postgres_password` and `jwt_secret` tokens to linked Supabase services. Database and user creation actions are intentionally absent: the image provisions these resources. Manage application schemas through Supabase migrations.
 
-The data volume and `/etc/postgresql-custom` encryption-key volume are both persistent. Preserve both when moving or restoring an environment. Initialization SQL is mounted at the paths used by the pinned upstream image and runs only for an empty data directory.
+Mount the persistent data volume at `/var/lib/postgresql`. It contains the PostgreSQL `data/` directory and `wodby-keys/`, including the root encryption key. Keeping these together lets native import replace both on one fresh volume. Initialization SQL is packaged in the image and runs only on an empty data directory. This layout is not an in-place conversion of another PostgreSQL service.
 
-## Backup and restore
+## Backup and import
 
-The database backup contains custom-format dumps for all non-template databases, role attributes/memberships, and the database encryption-key directory. It uses temporary space on the data volume and needs headroom for the dumps and final archive. Database and role identifiers containing tabs/newlines are rejected instead of producing an ambiguous backup index.
+The database backup contains custom-format dumps of all non-template databases, role attributes and memberships, the root encryption key, and a checksummed inventory. It needs space on the data volume for both the staged dumps and the final archive. The `exclude_tables` token accepts semicolon-separated table patterns; matching tables retain their definitions but omit their rows. Role names containing newlines are rejected.
 
-Take the backup with Supabase application writers stopped when matching it to an object-storage backup. Save the Wodby database and application tokens separately; neither a logical database dump nor object storage contains those credentials.
+Use the service's **Supabase database import** operation with a `.tar.gz` or `.tgz` backup produced by the same image bundle. The workflow extracts it into a read-only mount and starts the image on a fresh replacement volume. The image validates the files, installs the saved root key, initializes PostgreSQL and restores the databases before opening TCP connections. Corrupt backups and live-database imports are rejected. After incomplete initialization, retry with a fresh volume; do not remove its failure marker.
 
-Restore only into a fresh, isolated PostgreSQL instance running the same bundle, with application writers stopped. Extract the trusted backup archive, then run:
+Supabase-owned database passwords are set from the target environment's `postgres_password`; custom role passwords are restored from the backup. Database JWT settings follow the target `jwt_secret`. An unchanged import is safe across a container restart and is not replayed against the existing database.
 
-```sh
-SUPABASE_RESTORE_CONFIRM=fresh-instance sh /opt/wodby/restore.sh /path/to/extracted-backup
-```
+A coordinated recovery also needs matching application signing/encryption tokens and stored objects. Stop application writers when capturing that recovery point. Database import does not restore filesystem or S3 objects. Preserve the tokens needed to decrypt application data and rotate client-facing credentials separately when appropriate. Backups contain secrets and require protected storage.
 
-The restore creates missing roles, applies saved attributes and memberships, restores each database, and restores encryption material. Restore matching source tokens and objects before restarting PostgreSQL and Supabase. Restoring role passwords changes the required connection credentials; use the matching database token for the target.
-
-Do not change the PostgreSQL major image tag against an existing data directory. Major upgrades and restoring a backup from another bundle need a separately tested migration procedure.
+Only the checksummed format from the same supported Supabase bundle is accepted. Ordinary SQL dumps, another bundle, or a PostgreSQL major upgrade need a separately tested migration procedure. A Helm rollback does not undo database migrations.
 
 ## Upstream source
 
-Initialization SQL comes from [Supabase self-hosted/v0.8.1](https://github.com/supabase/supabase/tree/self-hosted/v0.8.1/docker/volumes/db), commit `8c7a4d9dbbaf8b552893822e89d7bf06f33f9220`. The upstream license is retained in this repository.
+The [Supabase PostgreSQL image](https://github.com/wodby/supabase-postgres) packages initialization SQL from [Supabase self-hosted/v0.8.1](https://github.com/supabase/supabase/tree/self-hosted/v0.8.1/docker/volumes/db), commit `8c7a4d9dbbaf8b552893822e89d7bf06f33f9220`, and retains the upstream license.
 
 ## Maintain a custom version
 
-Fork this repository, update the manifest and referenced configuration, and validate the complete Supabase bundle before importing your service.
+Fork this repository, update the manifest, and validate the complete Supabase bundle before importing your service.
