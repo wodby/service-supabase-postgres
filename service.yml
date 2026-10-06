@@ -1,5 +1,6 @@
 name: supabase-postgres
 title: Supabase PostgreSQL
+guidance: GUIDANCE.md
 icon: postgres
 type: db
 scalable: false
