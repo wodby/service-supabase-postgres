@@ -1,6 +1,6 @@
 # Supabase PostgreSQL service for Wodby
 
-PostgreSQL 17 for the Supabase self-hosted/v0.8.1 bundle, using `wodby/supabase-postgres:17-0.1.0` and the Wodby `stateful` chart. The image retains the official Supabase runtime and entrypoint, and provides Wodby backup and import operations.
+PostgreSQL 17 for the Supabase self-hosted/v0.8.1 bundle, using `wodby/supabase-postgres:17-r0` and the Wodby `stateful` chart. The image retains the official Supabase runtime and entrypoint, and provides Wodby backup and import operations.
 
 ## Use this service
 
@@ -8,7 +8,7 @@ Use this service through the [Supabase stack](https://github.com/wodby/stack-sup
 
 ## Database contract
 
-The service pins `wodby/supabase-postgres:17-0.1.0`, retaining the official Supabase runtime and entrypoint with Wodby backup/import helpers.
+The service pins `wodby/supabase-postgres:17-r0`, retaining the official Supabase runtime and entrypoint with Wodby backup/import helpers.
 
 Supabase owns the `postgres` database, reserved roles, internal schemas and extensions. The service exports its `postgres_password` and `jwt_secret` tokens to linked Supabase services. Database and user creation actions are intentionally absent: the image provisions these resources. Manage application schemas through Supabase migrations.
 
