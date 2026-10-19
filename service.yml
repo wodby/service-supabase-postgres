@@ -63,10 +63,13 @@ volumes:
 env:
 - name: POSTGRES_PASSWORD
   value: '{{postgres_password}}'
+  secret: true
 - name: PGPASSWORD
   value: '{{postgres_password}}'
+  secret: true
 - name: JWT_SECRET
   value: '{{jwt_secret}}'
+  secret: true
 - name: JWT_EXP
   value: '3600'
 - name: POSTGRES_DB
