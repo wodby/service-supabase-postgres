@@ -10,7 +10,7 @@ labels:
 - supabase-postgres
 options:
 - version: '17'
-  tag: 17-0.1.0
+  tag: 17-r0
   default: true
 endpoints:
 - name: postgres
