@@ -139,6 +139,10 @@ workloads:
   containers:
   - name: postgres
     image: wodby/supabase-postgres
+    resources:
+      request:
+        cpu: 30
+        memory: 80
     helm:
       env: envVars
       resources: resources
