@@ -141,8 +141,8 @@ workloads:
     image: wodby/supabase-postgres
     resources:
       request:
-        cpu: 30
-        memory: 80
+        cpu: 50
+        memory: 112
     helm:
       env: envVars
       resources: resources
