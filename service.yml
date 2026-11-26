@@ -10,8 +10,8 @@ labels:
 - supabase-postgres
 options:
 - version: '17'
-  tag: 17-r1
-  digest: sha256:45e07b42af97fd30c4ea06c11e8a7b7c7626f9d94a623e3f354ebf8d2a5cbd0a
+  tag: 17-r2
+  digest: sha256:349ce6439e76913d41f3ece9f300fe76df3a0bd99c4df079ff297334fb1c6f28
   default: true
 endpoints:
 - name: postgres
